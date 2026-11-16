@@ -1,0 +1,2014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DentalCare — Modern Dental Clinic & Patient Portal</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script src="js/tailwind-config.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col" x-data="dentalCareSystem()" x-init="init()">
+
+    <!-- =====================================================================
+         TOP INTERCONNECTED INTERFACE & ROLE SWITCHER BAR (FR-01)
+         Allows seamless switching between Public Website & Internal Dashboard
+         ===================================================================== -->
+    <div class="bg-tealbrand-900 text-white px-4 py-2 text-xs border-b border-tealbrand-800 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center space-x-2">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-tealbrand-800 text-tealbrand-200 font-semibold tracking-wide uppercase text-[10px]">
+                    <i data-lucide="layers" class="w-3 h-3 mr-1"></i> System Mode
+                </span>
+                <div class="inline-flex rounded-lg bg-tealbrand-950/60 p-0.5 border border-tealbrand-700/60">
+                    <button @click="switchInterface('public')"
+                        :class="interfaceMode === 'public' ? 'bg-tealbrand-600 text-white shadow-sm' : 'text-tealbrand-200 hover:text-white'"
+                        class="px-3 py-1 rounded-md font-medium transition flex items-center space-x-1.5">
+                        <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                        <span>Public Patient Website</span>
+                    </button>
+                    <button @click="switchInterface('dashboard')"
+                        :class="interfaceMode === 'dashboard' ? 'bg-tealbrand-600 text-white shadow-sm' : 'text-tealbrand-200 hover:text-white'"
+                        class="px-3 py-1 rounded-md font-medium transition flex items-center space-x-1.5">
+                        <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
+                        <span>Clinic Management Dashboard</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Role-Based Access Control (RBAC) Switcher -->
+            <div class="flex items-center space-x-3">
+                <template x-if="interfaceMode === 'dashboard'">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-tealbrand-200 hidden sm:inline">Active Staff Role (RBAC):</span>
+                        <select x-model="staffRole" @change="onRoleChange()" class="bg-tealbrand-800 border border-tealbrand-600 text-white text-xs rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer font-medium">
+                            <option value="Clinic Admin">Clinic Admin (Business Management)</option>
+                            <option value="System Admin">System Admin (IT Support / Technical)</option>
+                            <option value="Receptionist">Receptionist (Front Desk & Billing)</option>
+                            <option value="Dentist">Dentist (Clinical & Charting)</option>
+                        </select>
+                    </div>
+                </template>
+                <template x-if="interfaceMode === 'public'">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-tealbrand-200 hidden sm:inline">Patient Session:</span>
+                        <span class="px-2 py-0.5 rounded bg-tealbrand-800 text-tealbrand-100 font-medium" x-text="loggedInPatient ? loggedInPatient.name + ' (' + loggedInPatient.id + ')' : 'Guest Visitor'"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Toast Notification -->
+    <div x-show="toast.show" x-transition.opacity x-cloak
+        class="fixed bottom-5 right-5 z-50 max-w-sm bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700 flex items-center space-x-3 text-xs md:text-sm">
+        <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+            :class="toast.type === 'error' ? 'bg-rose-500/20 text-rose-400' : 'bg-tealbrand-500/20 text-tealbrand-300'">
+            <i :data-lucide="toast.type === 'error' ? 'alert-circle' : 'check-circle-2'" class="w-4 h-4"></i>
+        </div>
+        <span x-text="toast.message" class="leading-snug"></span>
+    </div>
+
+    <!-- =====================================================================
+         INTERFACE 1: PUBLIC-FACING PATIENT WEBSITE (FR-01, FR-02, FR-05)
+         ===================================================================== -->
+    <div x-show="interfaceMode === 'public'" class="flex-1 flex flex-col bg-white">
+        <!-- Public Navigation Bar -->
+        <header class="bg-white/95 backdrop-blur-md border-b border-slate-100 sticky top-[37px] z-40">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <!-- Brand Logo -->
+                <a href="#" @click.prevent="publicSection = 'home'" class="flex items-center space-x-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-tealbrand-700 text-white flex items-center justify-center shadow-sm">
+                        <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <span class="font-display font-bold text-lg text-slate-900 tracking-tight">Dental<span class="text-tealbrand-600">Care</span></span>
+                        <span class="block text-[10px] text-slate-400 -mt-1">Modern Family Dentistry</span>
+                    </div>
+                </a>
+
+                <!-- Desktop Navigation -->
+                <nav class="hidden md:flex items-center space-x-7 text-sm font-medium text-slate-600">
+                    <button @click="publicSection = 'home'" :class="publicSection === 'home' ? 'text-tealbrand-700 font-semibold' : 'hover:text-tealbrand-700'" class="transition">Home</button>
+                    <button @click="publicSection = 'services'" :class="publicSection === 'services' ? 'text-tealbrand-700 font-semibold' : 'hover:text-tealbrand-700'" class="transition">Services & Pricing</button>
+                    <button @click="publicSection = 'dentists'" :class="publicSection === 'dentists' ? 'text-tealbrand-700 font-semibold' : 'hover:text-tealbrand-700'" class="transition">Our Dentists</button>
+                    <button @click="publicSection = 'book'" :class="publicSection === 'book' ? 'text-tealbrand-700 font-semibold' : 'hover:text-tealbrand-700'" class="transition">Book Online</button>
+                    <button x-show="loggedInPatient" @click="publicSection = 'portal'" :class="publicSection === 'portal' ? 'text-tealbrand-700 font-semibold' : 'hover:text-tealbrand-700'" class="transition flex items-center space-x-1">
+                        <span>My Appointments</span>
+                        <span class="px-1.5 py-0.2 bg-tealbrand-100 text-tealbrand-800 rounded-full text-[10px] font-bold" x-text="patientAppointments.length"></span>
+                    </button>
+                </nav>
+
+                <!-- Auth & CTA Buttons -->
+                <div class="flex items-center space-x-2.5">
+                    <template x-if="!loggedInPatient">
+                        <div class="flex items-center space-x-2">
+                            <button @click="authModalMode = 'login'; showAuthModal = true" class="text-xs sm:text-sm font-medium text-slate-700 hover:text-tealbrand-700 px-3 py-2 rounded-xl transition">Log In</button>
+                            <button @click="authModalMode = 'register'; showAuthModal = true" class="hidden sm:inline-flex text-xs sm:text-sm font-medium bg-mintsoft-100 hover:bg-mintsoft-200 text-tealbrand-800 px-3.5 py-2 rounded-xl transition">Register</button>
+                        </div>
+                    </template>
+                    <template x-if="loggedInPatient">
+                        <div class="flex items-center space-x-2">
+                            <button @click="publicSection = 'portal'" class="text-xs font-semibold bg-mintsoft-100 text-tealbrand-800 px-3 py-2 rounded-xl hover:bg-mintsoft-200 transition flex items-center space-x-1.5">
+                                <i data-lucide="user" class="w-3.5 h-3.5"></i>
+                                <span x-text="loggedInPatient.name.split(' ')[0]"></span>
+                            </button>
+                            <button @click="logoutPatient()" title="Log Out" class="p-2 text-slate-400 hover:text-rose-600 rounded-xl hover:bg-slate-100 transition">
+                                <i data-lucide="log-out" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </template>
+                    <button @click="publicSection = 'book'" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm transition flex items-center space-x-1.5">
+                        <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                        <span>Book Now</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mobile Public Nav Strip -->
+            <div class="flex md:hidden border-t border-slate-100 px-3 py-2 space-x-2 overflow-x-auto bg-slate-50/70 text-xs font-medium">
+                <button @click="publicSection = 'home'" :class="publicSection === 'home' ? 'bg-tealbrand-700 text-white' : 'bg-white text-slate-600'" class="px-3 py-1.5 rounded-lg whitespace-nowrap">Home</button>
+                <button @click="publicSection = 'services'" :class="publicSection === 'services' ? 'bg-tealbrand-700 text-white' : 'bg-white text-slate-600'" class="px-3 py-1.5 rounded-lg whitespace-nowrap">Services</button>
+                <button @click="publicSection = 'dentists'" :class="publicSection === 'dentists' ? 'bg-tealbrand-700 text-white' : 'bg-white text-slate-600'" class="px-3 py-1.5 rounded-lg whitespace-nowrap">Dentists</button>
+                <button @click="publicSection = 'book'" :class="publicSection === 'book' ? 'bg-tealbrand-700 text-white' : 'bg-white text-slate-600'" class="px-3 py-1.5 rounded-lg whitespace-nowrap">Book Online</button>
+                <button x-show="loggedInPatient" @click="publicSection = 'portal'" :class="publicSection === 'portal' ? 'bg-tealbrand-700 text-white' : 'bg-white text-slate-600'" class="px-3 py-1.5 rounded-lg whitespace-nowrap">My Portal</button>
+            </div>
+        </header>
+
+        <!-- PUBLIC SECTION: HOME (FR-02) -->
+        <div x-show="publicSection === 'home'" class="space-y-16 pb-16">
+            <!-- Hero Section -->
+            <section class="bg-gradient-to-br from-mintsoft-50 via-white to-tealbrand-50/60 border-b border-slate-100">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+                    <div class="lg:col-span-7 space-y-6">
+                        <div class="inline-flex items-center space-x-2 bg-mintsoft-100 text-tealbrand-800 px-3.5 py-1.5 rounded-full text-xs font-semibold">
+                            <span class="w-2 h-2 rounded-full bg-tealbrand-600"></span>
+                            <span>Gentle, Modern & Transparent Dental Care</span>
+                        </div>
+                        <h1 class="font-display text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 leading-tight tracking-tight">
+                            Healthy Smiles Start With <span class="text-tealbrand-700">Trusted Clinical Care.</span>
+                        </h1>
+                        <p class="text-slate-600 text-base md:text-lg leading-relaxed max-w-2xl">
+                            Book your dental check-ups, cleanings, and specialized treatments online in under two minutes. View real-time dentist availability, transparent pricing, and track your appointment status effortlessly.
+                        </p>
+                        <div class="flex flex-wrap items-center gap-3 pt-2">
+                            <button @click="publicSection = 'book'" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white font-semibold px-6 py-3.5 rounded-2xl shadow-md hover:shadow-lg transition flex items-center space-x-2 text-sm">
+                                <i data-lucide="calendar-check" class="w-5 h-5"></i>
+                                <span>Book Appointment Online</span>
+                            </button>
+                            <button @click="publicSection = 'services'" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold px-6 py-3.5 rounded-2xl transition flex items-center space-x-2 text-sm">
+                                <span>Explore Services & Prices</span>
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <!-- Clinic Quick Info Strip (Operating Hours & Contact FR-02) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-slate-200/70">
+                            <div class="flex items-start space-x-3">
+                                <div class="p-2 rounded-xl bg-tealbrand-50 text-tealbrand-700">
+                                    <i data-lucide="clock" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-900">Operating Hours</p>
+                                    <p class="text-xs text-slate-500" x-text="clinicSettings.hours"></p>
+                                    <p class="text-[11px] text-tealbrand-700 font-medium" x-text="clinicSettings.closedNote"></p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <div class="p-2 rounded-xl bg-tealbrand-50 text-tealbrand-700">
+                                    <i data-lucide="phone-call" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-900">Direct Clinic Line</p>
+                                    <p class="text-xs text-slate-500" x-text="clinicSettings.phone"></p>
+                                    <p class="text-[11px] text-slate-400" x-text="clinicSettings.email"></p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <div class="p-2 rounded-xl bg-tealbrand-50 text-tealbrand-700">
+                                    <i data-lucide="map-pin" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-900">Clinic Location</p>
+                                    <p class="text-xs text-slate-500" x-text="clinicSettings.address"></p>
+                                    <p class="text-[11px] text-slate-400" x-text="clinicSettings.city"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hero Right Card: Quick Booking Preview & Clinic Highlights -->
+                    <div class="lg:col-span-5">
+                        <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 space-y-5">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold uppercase tracking-wider text-tealbrand-700">Fast-Track Online Booking</span>
+                                <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold">Accepting Patients</span>
+                            </div>
+                            <h3 class="font-display font-bold text-xl text-slate-900">Start Your Visit in 4 Simple Steps</h3>
+                            <div class="space-y-3 text-xs">
+                                <div class="flex items-center space-x-3 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <span class="w-7 h-7 rounded-full bg-tealbrand-700 text-white font-bold flex items-center justify-center flex-shrink-0">1</span>
+                                    <div>
+                                        <p class="font-semibold text-slate-900">Choose Your Dental Service</p>
+                                        <p class="text-slate-500">Transparent upfront fees with zero hidden charges.</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-3 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <span class="w-7 h-7 rounded-full bg-tealbrand-700 text-white font-bold flex items-center justify-center flex-shrink-0">2</span>
+                                    <div>
+                                        <p class="font-semibold text-slate-900">Select Specialist & Time Slot</p>
+                                        <p class="text-slate-500">Real-time schedule conflict prevention.</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-3 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <span class="w-7 h-7 rounded-full bg-tealbrand-700 text-white font-bold flex items-center justify-center flex-shrink-0">3</span>
+                                    <div>
+                                        <p class="font-semibold text-slate-900">Track & Manage Online</p>
+                                        <p class="text-slate-500">Instant status updates and easy rescheduling.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <button @click="publicSection = 'book'" class="w-full py-3 bg-tealbrand-700 hover:bg-tealbrand-800 text-white font-semibold rounded-xl text-sm transition shadow-sm">
+                                Schedule Your Appointment
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Featured Services Preview -->
+            <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-tealbrand-700">Transparent Care</span>
+                        <h2 class="font-display text-2xl md:text-3xl font-bold text-slate-900 mt-1">Popular Dental Services</h2>
+                    </div>
+                    <button @click="publicSection = 'services'" class="text-sm font-semibold text-tealbrand-700 hover:text-tealbrand-800 flex items-center">
+                        View All Services <i data-lucide="chevron-right" class="w-4 h-4 ml-1"></i>
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <template x-for="svc in activeServices.slice(0, 3)" :key="svc.id">
+                        <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-tealbrand-300 transition flex flex-col justify-between space-y-4">
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="px-2.5 py-1 rounded-lg bg-mintsoft-100 text-tealbrand-800 text-xs font-semibold" x-text="svc.category"></span>
+                                    <span class="text-lg font-bold text-tealbrand-700" x-text="'$' + svc.price.toFixed(2)"></span>
+                                </div>
+                                <h3 class="font-display font-bold text-lg text-slate-900" x-text="svc.name"></h3>
+                                <p class="text-xs text-slate-600 leading-relaxed" x-text="svc.description"></p>
+                            </div>
+                            <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+                                <span class="text-xs text-slate-400 flex items-center"><i data-lucide="clock" class="w-3.5 h-3.5 mr-1"></i> <span x-text="svc.duration + ' mins'"></span></span>
+                                <button @click="startBookingWithService(svc.name)" class="text-xs font-semibold text-tealbrand-700 hover:text-tealbrand-900 flex items-center">
+                                    Book Service <i data-lucide="arrow-right" class="w-3.5 h-3.5 ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </section>
+        </div>
+
+        <!-- PUBLIC SECTION: FULL SERVICES & PRICING CATALOG (FR-02, FR-10) -->
+        <div x-show="publicSection === 'services'" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8" x-cloak>
+            <div class="text-center max-w-2xl mx-auto space-y-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-tealbrand-700">Clinic Fee Schedule</span>
+                <h2 class="font-display text-3xl font-bold text-slate-900">Dental Services & Transparent Pricing</h2>
+                <p class="text-sm text-slate-500">All listed treatments are currently available for online appointment booking.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <template x-for="svc in activeServices" :key="svc.id">
+                    <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-tealbrand-400 transition flex flex-col justify-between space-y-5">
+                        <div class="space-y-2.5">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-mintsoft-100 text-tealbrand-800" x-text="svc.category"></span>
+                                <span class="text-xl font-extrabold text-tealbrand-700" x-text="'$' + svc.price.toFixed(2)"></span>
+                            </div>
+                            <h3 class="font-display font-bold text-lg text-slate-900" x-text="svc.name"></h3>
+                            <p class="text-xs text-slate-600 leading-relaxed" x-text="svc.description"></p>
+                        </div>
+                        <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+                            <span class="text-xs text-slate-500" x-text="'Est. Duration: ' + svc.duration + ' mins'"></span>
+                            <button @click="startBookingWithService(svc.name)" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs font-semibold px-4 py-2 rounded-xl transition">
+                                Select & Book
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- PUBLIC SECTION: DENTIST PROFILES & SPECIALTIES (FR-02, FR-04) -->
+        <div x-show="publicSection === 'dentists'" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8" x-cloak>
+            <div class="text-center max-w-2xl mx-auto space-y-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-tealbrand-700">Clinical Team</span>
+                <h2 class="font-display text-3xl font-bold text-slate-900">Meet Our Experienced Dentists</h2>
+                <p class="text-sm text-slate-500">Choose a preferred dental specialist based on their expertise and weekly clinic hours.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <template x-for="doc in activeDentists" :key="doc.id">
+                    <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-14 h-14 rounded-2xl bg-tealbrand-700 text-white font-display font-bold text-lg flex items-center justify-center shadow-sm" x-text="doc.initials"></div>
+                            <div>
+                                <h3 class="font-display font-bold text-lg text-slate-900" x-text="doc.name"></h3>
+                                <p class="text-xs font-semibold text-tealbrand-700" x-text="doc.specialty"></p>
+                                <p class="text-[11px] text-slate-400 mt-0.5" x-text="doc.experience + ' Experience'"></p>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed" x-text="doc.bio"></p>
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100 space-y-1.5 text-xs">
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Working Days:</span>
+                                <span class="font-semibold text-slate-800" x-text="doc.workingDays"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Clinic Hours:</span>
+                                <span class="font-semibold text-slate-800" x-text="doc.workingHours"></span>
+                            </div>
+                            <div x-show="doc.dayOffNote" class="flex justify-between text-amber-700 pt-1 border-t border-slate-200/60">
+                                <span>Schedule Exception:</span>
+                                <span class="font-medium" x-text="doc.dayOffNote"></span>
+                            </div>
+                        </div>
+                        <button @click="startBookingWithDentist(doc.name)" class="w-full py-2.5 bg-mintsoft-100 hover:bg-tealbrand-700 text-tealbrand-800 hover:text-white font-semibold rounded-xl text-xs transition">
+                            Book Appointment with <span x-text="doc.name.split(' ')[1]"></span>
+                        </button>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- PUBLIC SECTION: STEP-BY-STEP ONLINE APPOINTMENT BOOKING WIZARD (FR-05) -->
+        <div x-show="publicSection === 'book'" class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full" x-cloak>
+            <div class="bg-white rounded-3xl border border-slate-200 shadow-lg overflow-hidden">
+                <!-- Wizard Header -->
+                <div class="bg-tealbrand-800 text-white px-6 py-6 sm:px-8">
+                    <h2 class="font-display text-xl sm:text-2xl font-bold">Online Appointment Booking</h2>
+                    <p class="text-xs sm:text-sm text-tealbrand-100 mt-1">Follow the 4 steps below to submit your appointment request.</p>
+
+                    <!-- Step Progress Bar -->
+                    <div class="grid grid-cols-4 gap-2 mt-6">
+                        <div class="space-y-1.5">
+                            <div class="h-1.5 rounded-full" :class="bookingStep >= 1 ? 'bg-tealbrand-300' : 'bg-tealbrand-950'"></div>
+                            <span class="text-[11px] font-medium block" :class="bookingStep >= 1 ? 'text-white' : 'text-tealbrand-300'">1. Service</span>
+                        </div>
+                        <div class="space-y-1.5">
+                            <div class="h-1.5 rounded-full" :class="bookingStep >= 2 ? 'bg-tealbrand-300' : 'bg-tealbrand-950'"></div>
+                            <span class="text-[11px] font-medium block" :class="bookingStep >= 2 ? 'text-white' : 'text-tealbrand-300'">2. Dentist</span>
+                        </div>
+                        <div class="space-y-1.5">
+                            <div class="h-1.5 rounded-full" :class="bookingStep >= 3 ? 'bg-tealbrand-300' : 'bg-tealbrand-950'"></div>
+                            <span class="text-[11px] font-medium block" :class="bookingStep >= 3 ? 'text-white' : 'text-tealbrand-300'">3. Date & Time</span>
+                        </div>
+                        <div class="space-y-1.5">
+                            <div class="h-1.5 rounded-full" :class="bookingStep >= 4 ? 'bg-tealbrand-300' : 'bg-tealbrand-950'"></div>
+                            <span class="text-[11px] font-medium block" :class="bookingStep >= 4 ? 'text-white' : 'text-tealbrand-300'">4. Confirm</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wizard Body -->
+                <div class="p-6 sm:p-8">
+                    <!-- STEP 1: Select Service -->
+                    <div x-show="bookingStep === 1" class="space-y-4">
+                        <h3 class="font-display font-bold text-lg text-slate-900">Step 1: Select a Dental Service</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <template x-for="svc in activeServices" :key="svc.id">
+                                <div @click="bookingForm.service = svc.name"
+                                    :class="bookingForm.service === svc.name ? 'border-tealbrand-600 bg-tealbrand-50/60 ring-2 ring-tealbrand-600/20' : 'border-slate-200 hover:border-tealbrand-300'"
+                                    class="p-4 rounded-2xl border cursor-pointer transition flex justify-between items-start">
+                                    <div>
+                                        <p class="font-bold text-sm text-slate-900" x-text="svc.name"></p>
+                                        <p class="text-xs text-slate-500 mt-0.5" x-text="svc.duration + ' mins • ' + svc.category"></p>
+                                    </div>
+                                    <span class="font-bold text-sm text-tealbrand-700" x-text="'$' + svc.price.toFixed(2)"></span>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="flex justify-end pt-4">
+                            <button @click="bookingForm.service ? bookingStep = 2 : showToast('Please select a dental service first', 'error')"
+                                class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition">
+                                Next: Choose Dentist →
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 2: Choose Dentist -->
+                    <div x-show="bookingStep === 2" class="space-y-4">
+                        <h3 class="font-display font-bold text-lg text-slate-900">Step 2: Choose Your Preferred Dentist</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <template x-for="doc in activeDentists" :key="doc.id">
+                                <div @click="bookingForm.dentist = doc.name"
+                                    :class="bookingForm.dentist === doc.name ? 'border-tealbrand-600 bg-tealbrand-50/60 ring-2 ring-tealbrand-600/20' : 'border-slate-200 hover:border-tealbrand-300'"
+                                    class="p-4 rounded-2xl border cursor-pointer transition space-y-2">
+                                    <div class="w-10 h-10 rounded-xl bg-tealbrand-700 text-white font-bold flex items-center justify-center text-sm" x-text="doc.initials"></div>
+                                    <div>
+                                        <p class="font-bold text-sm text-slate-900" x-text="doc.name"></p>
+                                        <p class="text-xs text-tealbrand-700 font-medium" x-text="doc.specialty"></p>
+                                        <p class="text-[11px] text-slate-400 mt-1" x-text="doc.workingDays"></p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="flex justify-between pt-4">
+                            <button @click="bookingStep = 1" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-5 py-2.5 rounded-xl transition">← Back</button>
+                            <button @click="bookingForm.dentist ? bookingStep = 3 : showToast('Please choose a dentist', 'error')"
+                                class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition">
+                                Next: Date & Time →
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 3: Select Date & Available Time Slot -->
+                    <div x-show="bookingStep === 3" class="space-y-5">
+                        <h3 class="font-display font-bold text-lg text-slate-900">Step 3: Pick Date & Available Time Slot</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">Preferred Date</label>
+                                <input type="date" x-model="bookingForm.date" min="2026-11-16"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-tealbrand-600">
+                            </div>
+                            <div class="bg-mintsoft-50 p-3.5 rounded-xl border border-mintsoft-200 text-xs space-y-1">
+                                <p class="font-semibold text-tealbrand-900">Selected Specialist Schedule:</p>
+                                <p class="text-slate-600" x-text="bookingForm.dentist"></p>
+                                <p class="text-tealbrand-700 font-medium">Already booked slots are automatically disabled below.</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-2">Available Time Slots</label>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                                <template x-for="slot in availableTimeSlots" :key="slot.time">
+                                    <button type="button" :disabled="slot.booked" @click="bookingForm.time = slot.time"
+                                        :class="{
+                                            'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed line-through': slot.booked,
+                                            'bg-tealbrand-700 text-white border-tealbrand-700 shadow-sm': !slot.booked && bookingForm.time === slot.time,
+                                            'bg-white text-slate-700 border-slate-200 hover:border-tealbrand-500': !slot.booked && bookingForm.time !== slot.time
+                                        }"
+                                        class="py-2.5 px-3 rounded-xl border text-xs font-semibold transition text-center">
+                                        <span x-text="slot.time"></span>
+                                        <span x-show="slot.booked" class="block text-[9px] font-normal">Booked</span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between pt-4">
+                            <button @click="bookingStep = 2" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-5 py-2.5 rounded-xl transition">← Back</button>
+                            <button @click="bookingForm.date && bookingForm.time ? bookingStep = 4 : showToast('Please select both date and an available time slot', 'error')"
+                                class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition">
+                                Next: Your Details →
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 4: Patient Details & Review -->
+                    <div x-show="bookingStep === 4" class="space-y-5">
+                        <h3 class="font-display font-bold text-lg text-slate-900">Step 4: Patient Details & Confirmation</h3>
+                        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                            <div>
+                                <span class="text-slate-400 block">Service</span>
+                                <span class="font-bold text-slate-900" x-text="bookingForm.service"></span>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 block">Dentist</span>
+                                <span class="font-bold text-slate-900" x-text="bookingForm.dentist"></span>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 block">Date</span>
+                                <span class="font-bold text-slate-900" x-text="bookingForm.date"></span>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 block">Time</span>
+                                <span class="font-bold text-tealbrand-700" x-text="bookingForm.time"></span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                            <div>
+                                <label class="block font-semibold text-slate-700 mb-1">Full Name *</label>
+                                <input type="text" x-model="bookingForm.patientName" placeholder="e.g., Sarah Jenkins"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-tealbrand-600">
+                            </div>
+                            <div>
+                                <label class="block font-semibold text-slate-700 mb-1">Phone Number *</label>
+                                <input type="tel" x-model="bookingForm.phone" placeholder="+855 12 345 678"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-tealbrand-600">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block font-semibold text-slate-700 mb-1">Notes / Symptoms (Optional)</label>
+                                <textarea rows="2" x-model="bookingForm.notes" placeholder="Any tooth sensitivity or special requests..."
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-tealbrand-600"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between pt-4">
+                            <button @click="bookingStep = 3" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-5 py-2.5 rounded-xl transition">← Back</button>
+                            <button @click="submitPublicBooking()"
+                                class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-sm font-semibold px-6 py-3 rounded-xl shadow-md transition flex items-center space-x-2">
+                                <i data-lucide="check-circle" class="w-4 h-4"></i>
+                                <span>Submit Appointment Request</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 5: Booking Confirmation Screen -->
+                    <div x-show="bookingStep === 5" class="text-center py-6 space-y-4">
+                        <div class="w-16 h-16 rounded-full bg-tealbrand-100 text-tealbrand-700 flex items-center justify-center mx-auto">
+                            <i data-lucide="check-circle-2" class="w-9 h-9"></i>
+                        </div>
+                        <h3 class="font-display text-2xl font-bold text-slate-900">Appointment Request Submitted!</h3>
+                        <p class="text-sm text-slate-600 max-w-md mx-auto">
+                            Your booking reference is <span class="font-bold text-tealbrand-700" x-text="lastBookingId"></span>. Status is currently <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold">Pending Approval</span> by our receptionist.
+                        </p>
+                        <div class="flex flex-wrap justify-center gap-3 pt-4">
+                            <button @click="bookingStep = 1; publicSection = 'portal'" class="bg-tealbrand-700 text-white text-xs font-semibold px-5 py-2.5 rounded-xl">View in My Appointments</button>
+                            <button @click="bookingStep = 1; publicSection = 'home'" class="bg-slate-100 text-slate-700 text-xs font-semibold px-5 py-2.5 rounded-xl">Back to Home</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PUBLIC SECTION: PATIENT ACCOUNT PORTAL (FR-01, FR-05) -->
+        <div x-show="publicSection === 'portal'" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full space-y-8" x-cloak>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-mintsoft-50 p-6 rounded-2xl border border-mintsoft-200">
+                <div>
+                    <span class="text-xs font-bold uppercase tracking-wider text-tealbrand-700">Patient Account Portal</span>
+                    <h2 class="font-display text-2xl font-bold text-slate-900 mt-0.5" x-text="loggedInPatient ? 'Welcome, ' + loggedInPatient.name : 'My Appointment Tracker'"></h2>
+                    <p class="text-xs text-slate-600 mt-1" x-text="loggedInPatient ? 'Patient ID: ' + loggedInPatient.id + ' • Phone: ' + loggedInPatient.phone : 'Viewing recent bookings'"></p>
+                </div>
+                <button @click="publicSection = 'book'" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm">
+                    + Book New Appointment
+                </button>
+            </div>
+
+            <!-- Patient Appointments List with Accept/Decline Reschedule Proposal & Cancel (FR-05) -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <h3 class="font-display font-bold text-base text-slate-900">Your Appointment Requests & History</h3>
+                    <span class="text-xs text-slate-500">Real-time sync with Clinic Reception</span>
+                </div>
+                <div class="divide-y divide-slate-100">
+                    <template x-for="apt in patientAppointments" :key="apt.id">
+                        <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50">
+                            <div class="space-y-1">
+                                <div class="flex items-center space-x-2.5">
+                                    <span class="font-mono text-xs font-bold text-slate-500" x-text="apt.id"></span>
+                                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold"
+                                        :class="statusBadgeClass(apt.status)" x-text="apt.status"></span>
+                                </div>
+                                <h4 class="font-bold text-slate-900 text-base" x-text="apt.service"></h4>
+                                <p class="text-xs text-slate-600">
+                                    <span class="font-medium" x-text="apt.dentist"></span> • <span x-text="apt.date + ' at ' + apt.time"></span>
+                                </p>
+                                <!-- Reschedule Proposal Banner (FR-05) -->
+                                <div x-show="apt.status === 'Reschedule Proposed'" class="mt-2 p-3 rounded-xl bg-sky-50 border border-sky-200 text-xs text-sky-900">
+                                    <p class="font-semibold">Clinic Proposed Alternative Time:</p>
+                                    <p x-text="'New Suggested Slot: ' + (apt.proposedDate || apt.date) + ' at ' + (apt.proposedTime || '02:30 PM')"></p>
+                                </div>
+                            </div>
+
+                            <!-- Patient Actions -->
+                            <div class="flex flex-wrap items-center gap-2">
+                                <template x-if="apt.status === 'Reschedule Proposed'">
+                                    <div class="flex items-center space-x-2">
+                                        <button @click="acceptReschedule(apt)" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition">Accept New Time</button>
+                                        <button @click="updateAppointmentStatus(apt.id, 'Cancelled')" class="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold px-3.5 py-2 rounded-xl transition">Decline</button>
+                                    </div>
+                                </template>
+                                <template x-if="apt.status === 'Pending' || apt.status === 'Confirmed'">
+                                    <button @click="updateAppointmentStatus(apt.id, 'Cancelled')" class="bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 text-xs font-semibold px-3.5 py-2 rounded-xl transition">
+                                        Cancel Appointment
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Public Footer -->
+        <footer class="bg-slate-900 text-slate-400 mt-auto py-10 px-4 sm:px-6 lg:px-8 text-xs">
+            <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="flex items-center space-x-2 text-white font-display font-bold text-base">
+                    <span class="w-7 h-7 rounded-lg bg-tealbrand-600 flex items-center justify-center"><i data-lucide="sparkles" class="w-4 h-4"></i></span>
+                    <span x-text="clinicSettings.name"></span>
+                </div>
+                <p x-text="clinicSettings.address + ' • Open ' + clinicSettings.hours + ' • ' + clinicSettings.phone"></p>
+                <p>© 2026 DentalCare Management System</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- =====================================================================
+         INTERFACE 2: INTERNAL CLINIC & SYSTEM ADMINISTRATION DASHBOARD
+         ===================================================================== -->
+    <div x-show="interfaceMode === 'dashboard'" class="flex-1 flex overflow-hidden" x-cloak>
+        <!-- Fixed Sidebar Navigation -->
+        <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+            class="fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 transition-transform duration-200 flex flex-col pt-10 lg:pt-0">
+            <!-- Sidebar Brand Header -->
+            <div class="p-5 border-b border-slate-100 flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-tealbrand-700 text-white flex items-center justify-center shadow-sm">
+                    <i :data-lucide="staffRole === 'System Admin' ? 'shield-alert' : 'activity'" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <span class="font-display font-bold text-base text-slate-900 block"
+                        x-text="staffRole === 'System Admin' ? 'System Admin' : 'DentalCare Admin'"></span>
+                    <span class="text-[10px] font-semibold uppercase tracking-wider text-tealbrand-700"
+                        x-text="staffRole === 'System Admin' ? 'Technical Control Panel' : staffRole"></span>
+                </div>
+            </div>
+
+            <!-- CLINIC OPERATIONS & BUSINESS SIDEBAR MENU (Clinic Admin, Receptionist, Dentist) -->
+            <nav x-show="staffRole !== 'System Admin'" class="flex-1 p-3 space-y-1 overflow-y-auto text-xs font-medium">
+                <button @click="setDashTab('dashboard')"
+                    :class="dashTab === 'dashboard' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="layout-grid" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>Dashboard</span>
+                </button>
+
+                <button x-show="staffRole === 'Clinic Admin'" @click="setDashTab('users')"
+                    :class="dashTab === 'users' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="user-cog" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>User & Staff Management</span>
+                </button>
+
+                <button x-show="staffRole === 'Clinic Admin' || staffRole === 'Receptionist'" @click="setDashTab('patients')"
+                    :class="dashTab === 'patients' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="users" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>Patient Management</span>
+                </button>
+
+                <button x-show="staffRole === 'Clinic Admin'" @click="setDashTab('dentists')"
+                    :class="dashTab === 'dentists' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="stethoscope" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>Dentist Management</span>
+                </button>
+
+                <button @click="setDashTab('appointments')"
+                    :class="dashTab === 'appointments' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition">
+                    <span class="flex items-center space-x-3">
+                        <i data-lucide="calendar" class="w-4 h-4 text-tealbrand-600"></i>
+                        <span>Appointment Management</span>
+                    </span>
+                    <span x-show="pendingCount > 0" class="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold" x-text="pendingCount"></span>
+                </button>
+
+                <button x-show="staffRole === 'Clinic Admin' || staffRole === 'Dentist'" @click="setDashTab('records')"
+                    :class="dashTab === 'records' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="clipboard-list" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>Dental Records</span>
+                </button>
+
+                <button x-show="staffRole === 'Clinic Admin' || staffRole === 'Dentist'" @click="setDashTab('treatments')"
+                    :class="dashTab === 'treatments' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="file-text" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>Treatment & Services</span>
+                </button>
+
+                <button x-show="staffRole === 'Clinic Admin' || staffRole === 'Receptionist'" @click="setDashTab('billing')"
+                    :class="dashTab === 'billing' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="receipt" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>Billing & Payments</span>
+                </button>
+
+                <button x-show="staffRole === 'Clinic Admin'" @click="setDashTab('reports')"
+                    :class="dashTab === 'reports' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="bar-chart-2" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>Reports</span>
+                </button>
+
+                <button x-show="staffRole === 'Clinic Admin'" @click="setDashTab('settings')"
+                    :class="dashTab === 'settings' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="settings" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>Settings</span>
+                </button>
+            </nav>
+
+            <!-- SYSTEM ADMIN (IT SUPPORT) TECHNICAL CONTROL PANEL SIDEBAR -->
+            <nav x-show="staffRole === 'System Admin'" class="flex-1 p-3 space-y-1 overflow-y-auto text-xs font-medium">
+                <p class="px-3 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">System Administration</p>
+                
+                <button @click="setDashTab('sys-overview')"
+                    :class="dashTab === 'sys-overview' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="shield-check" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>System Overview</span>
+                </button>
+
+                <button @click="setDashTab('sys-database')"
+                    :class="dashTab === 'sys-database' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="database" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>Database Management</span>
+                </button>
+
+                <button @click="setDashTab('sys-backup')"
+                    :class="dashTab === 'sys-backup' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="hard-drive-download" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>Backup & Recovery</span>
+                </button>
+
+                <button @click="setDashTab('sys-logs')"
+                    :class="dashTab === 'sys-logs' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="scroll-text" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>System Logs</span>
+                </button>
+
+                <button @click="setDashTab('sys-monitoring')"
+                    :class="dashTab === 'sys-monitoring' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="activity" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>System Monitoring</span>
+                </button>
+
+                <button @click="setDashTab('sys-settings')"
+                    :class="dashTab === 'sys-settings' ? 'bg-tealbrand-50 text-tealbrand-800 font-semibold border border-tealbrand-200/70' : 'text-slate-600 hover:bg-slate-50'"
+                    class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition">
+                    <i data-lucide="sliders" class="w-4 h-4 text-tealbrand-600"></i>
+                    <span>Technical Settings</span>
+                </button>
+            </nav>
+
+            <!-- Sidebar Bottom Logout Action -->
+            <div class="p-3 border-t border-slate-100 space-y-2">
+                <button @click="logoutStaffDashboard()" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-700 hover:bg-rose-50 transition">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Dashboard Workspace -->
+        <div class="flex-1 flex flex-col overflow-y-auto bg-slate-50">
+            <!-- Dashboard Top Bar -->
+            <header class="bg-white border-b border-slate-200/80 h-14 px-4 md:px-8 flex items-center justify-between sticky top-0 z-20">
+                <div class="flex items-center space-x-3">
+                    <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden p-1.5 rounded-lg text-slate-600 hover:bg-slate-100">
+                        <i data-lucide="menu" class="w-5 h-5"></i>
+                    </button>
+                    <h1 class="font-display font-bold text-sm md:text-base text-slate-900" x-text="dashTitle"></h1>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span class="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full bg-mintsoft-100 text-tealbrand-800 text-xs font-semibold">
+                        <span class="w-1.5 h-1.5 rounded-full bg-tealbrand-600 mr-1.5"></span>
+                        <span x-text="staffRole"></span>
+                    </span>
+                    <button @click="switchInterface('public')" class="text-xs font-medium text-tealbrand-700 hover:text-tealbrand-900 bg-tealbrand-50 px-3 py-1.5 rounded-lg transition">
+                        Preview Public Site ↗
+                    </button>
+                </div>
+            </header>
+
+            <!-- =================================================================
+                 1. CLINIC DASHBOARD OVERVIEW (Executive Summary + Role Matrix)
+                 ================================================================= -->
+            <div x-show="dashTab === 'dashboard'" class="p-4 md:p-8 space-y-6">
+                <!-- Operational & Financial Summary Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+                        <p class="text-[11px] font-semibold text-slate-400 uppercase">Registered Patients</p>
+                        <p class="text-2xl font-display font-bold text-slate-900 mt-1" x-text="patients.length"></p>
+                        <p class="text-[11px] text-tealbrand-700 mt-1 font-medium"> Verified Records</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+                        <p class="text-[11px] font-semibold text-slate-400 uppercase">Today's Appointments</p>
+                        <p class="text-2xl font-display font-bold text-slate-900 mt-1" x-text="todayAppointmentsCount"></p>
+                        <p class="text-[11px] text-amber-700 mt-1 font-medium" x-text="pendingCount + ' Pending Approval'"></p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+                        <p class="text-[11px] font-semibold text-slate-400 uppercase">Payments Received</p>
+                        <p class="text-2xl font-display font-bold text-tealbrand-700 mt-1" x-text="'$' + totalCollected.toFixed(0)"></p>
+                        <p class="text-[11px] text-slate-500 mt-1" x-text="'Invoiced: $' + totalInvoiced.toFixed(0)"></p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+                        <p class="text-[11px] font-semibold text-slate-400 uppercase">Outstanding Balance</p>
+                        <p class="text-2xl font-display font-bold text-rose-700 mt-1" x-text="'$' + totalOutstanding.toFixed(0)"></p>
+                        <p class="text-[11px] text-rose-600 mt-1 font-medium">Unpaid / Partial Due</p>
+                    </div>
+                </div>
+
+                <!-- Role-Based Responsibilities & Governance Card (Matches Reference Image 1 & 3) -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                            <h3 class="font-display font-bold text-base text-slate-900">Role-Based Responsibilities & Access Matrix</h3>
+                            <p class="text-xs text-slate-500">Clear separation between Business Management (Clinic Admin), Technical Management (System Admin), Front Desk, and Clinical Care.</p>
+                        </div>
+                        <button x-show="staffRole === 'Clinic Admin'" @click="staffRole = 'System Admin'; onRoleChange()" class="text-xs font-semibold bg-mintsoft-100 hover:bg-mintsoft-200 text-tealbrand-800 px-3.5 py-2 rounded-xl transition">
+                            Open System Admin Panel →
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                        <div class="p-4 rounded-2xl bg-tealbrand-50/60 border border-tealbrand-200/70 space-y-1.5">
+                            <span class="px-2 py-0.5 rounded bg-tealbrand-700 text-white text-[10px] font-bold uppercase">Business Management</span>
+                            <h4 class="font-bold text-slate-900 text-sm pt-1">Clinic Admin</h4>
+                            <p class="text-slate-600 leading-relaxed">Manage staff accounts & roles, dentists & services, monitor appointments, view financial reports, and manage clinic settings.</p>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-mintsoft-50 border border-mintsoft-200 space-y-1.5">
+                            <span class="px-2 py-0.5 rounded bg-emerald-700 text-white text-[10px] font-bold uppercase">Technical Management</span>
+                            <h4 class="font-bold text-slate-900 text-sm pt-1">System Admin (IT Support)</h4>
+                            <p class="text-slate-600 leading-relaxed">Monitor system health & server status, inspect error logs, manage database connections, create/restore backups, and configure tech settings.</p>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                            <span class="px-2 py-0.5 rounded bg-slate-700 text-white text-[10px] font-bold uppercase">Front Desk</span>
+                            <h4 class="font-bold text-slate-900 text-sm pt-1">Receptionist</h4>
+                            <p class="text-slate-600 leading-relaxed">Manage patient registrations, approve/reschedule appointments, check-in patients, and process invoices & payments.</p>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                            <span class="px-2 py-0.5 rounded bg-sky-700 text-white text-[10px] font-bold uppercase">Clinical Care</span>
+                            <h4 class="font-bold text-slate-900 text-sm pt-1">Dentist</h4>
+                            <p class="text-slate-600 leading-relaxed">View assigned appointments, update the 32-tooth 2D dental chart, record examination findings, and manage treatment plans.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Today's & Upcoming Appointments Quick Queue -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-display font-bold text-base text-slate-900">Today's & Upcoming Appointments</h3>
+                        <button @click="setDashTab('appointments')" class="text-xs font-semibold text-tealbrand-700 hover:underline">Manage All Appointments →</button>
+                    </div>
+                    <div class="divide-y divide-slate-100 text-xs">
+                        <template x-for="apt in appointments.slice(0, 4)" :key="apt.id">
+                            <div class="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div>
+                                    <p class="font-bold text-slate-900" x-text="apt.patientName + ' — ' + apt.service"></p>
+                                    <p class="text-slate-500" x-text="apt.date + ' • ' + apt.time + ' (' + apt.dentist + ')'"></p>
+                                </div>
+                                <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold w-fit" :class="statusBadgeClass(apt.status)" x-text="apt.status"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================================
+                 2. USER & STAFF MANAGEMENT (FR-01 — Clinic Admin)
+                 ================================================================= -->
+            <div x-show="dashTab === 'users'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-slate-900">User & Staff Account Management </h2>
+                        <p class="text-xs text-slate-500">Create, update, assign RBAC roles, and activate/deactivate clinic staff & system user accounts.</p>
+                    </div>
+                    <button @click="showNewUserModal = true" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm">
+                        + Create Staff Account
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                                <tr>
+                                    <th class="py-3.5 px-4">User ID</th>
+                                    <th class="py-3.5 px-4">Full Name</th>
+                                    <th class="py-3.5 px-4">Email / Login</th>
+                                    <th class="py-3.5 px-4">Assigned Role</th>
+                                    <th class="py-3.5 px-4">Account Status</th>
+                                    <th class="py-3.5 px-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <template x-for="u in staffUsers" :key="u.id">
+                                    <tr class="hover:bg-slate-50/70">
+                                        <td class="py-3.5 px-4 font-mono font-bold text-slate-700" x-text="u.id"></td>
+                                        <td class="py-3.5 px-4 font-semibold text-slate-900" x-text="u.name"></td>
+                                        <td class="py-3.5 px-4 text-slate-600" x-text="u.email"></td>
+                                        <td class="py-3.5 px-4">
+                                            <select x-model="u.role" @change="showToast('Updated role for ' + u.name + ' to ' + u.role)" class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-medium">
+                                                <option value="Clinic Admin">Clinic Admin</option>
+                                                <option value="System Admin">System Admin</option>
+                                                <option value="Receptionist">Receptionist</option>
+                                                <option value="Dentist">Dentist</option>
+                                            </select>
+                                        </td>
+                                        <td class="py-3.5 px-4">
+                                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                                                :class="u.active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'"
+                                                x-text="u.active ? 'Active' : 'Deactivated'"></span>
+                                        </td>
+                                        <td class="py-3.5 px-4 text-right">
+                                            <button @click="u.active = !u.active; showToast(u.name + ' status changed')"
+                                                class="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition"
+                                                x-text="u.active ? 'Deactivate' : 'Activate'"></button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================================
+                 3. PATIENT MANAGEMENT (FR-03 — Clinic Admin & Receptionist)
+                 ================================================================= -->
+            <div x-show="dashTab === 'patients'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-slate-900">Patient Management </h2>
+                        <p class="text-xs text-slate-500">Register new patients, generate unique patient IDs, view appointment history, and link online accounts.</p>
+                    </div>
+                    <button @click="showNewPatientModal = true" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm flex items-center space-x-1.5">
+                        <i data-lucide="user-plus" class="w-4 h-4"></i>
+                        <span>Register New Patient</span>
+                    </button>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <input type="text" x-model="patientSearchQuery" placeholder="Search patients by ID, name, or phone..." class="w-full sm:w-80 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-tealbrand-600">
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                                <tr>
+                                    <th class="py-3.5 px-4">Patient ID</th>
+                                    <th class="py-3.5 px-4">Full Name</th>
+                                    <th class="py-3.5 px-4">Age / Gender</th>
+                                    <th class="py-3.5 px-4">Phone</th>
+                                    <th class="py-3.5 px-4">Allergies</th>
+                                    <th class="py-3.5 px-4">Portal Account</th>
+                                    <th class="py-3.5 px-4 text-right">Records</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <template x-for="pat in filteredPatientsList" :key="pat.id">
+                                    <tr class="hover:bg-slate-50/70">
+                                        <td class="py-3.5 px-4 font-mono font-bold text-tealbrand-800" x-text="pat.id"></td>
+                                        <td class="py-3.5 px-4 font-bold text-slate-900" x-text="pat.name"></td>
+                                        <td class="py-3.5 px-4 text-slate-600" x-text="pat.age + ' yrs • ' + pat.gender"></td>
+                                        <td class="py-3.5 px-4 text-slate-600" x-text="pat.phone"></td>
+                                        <td class="py-3.5 px-4 text-rose-700 font-medium" x-text="pat.allergies"></td>
+                                        <td class="py-3.5 px-4">
+                                            <button @click="pat.onlineLinked = !pat.onlineLinked; showToast('Online portal link updated for ' + pat.name)"
+                                                :class="pat.onlineLinked ? 'bg-tealbrand-100 text-tealbrand-800' : 'bg-slate-100 text-slate-600'"
+                                                class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold"
+                                                x-text="pat.onlineLinked ? 'Online Linked' : 'Link Account'"></button>
+                                        </td>
+                                        <td class="py-3.5 px-4 text-right">
+                                            <button @click="selectedPatient = pat; setDashTab('records')" class="text-tealbrand-700 hover:underline font-semibold">Open Dental Chart →</button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================================
+                 4. DENTIST MANAGEMENT (FR-04 — Clinic Admin)
+                 ================================================================= -->
+            <div x-show="dashTab === 'dentists'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div>
+                    <h2 class="font-display text-xl font-bold text-slate-900">Dentist Management & Schedules </h2>
+                    <p class="text-xs text-slate-500">Manage dentist specialties, working days/hours, availability status, and schedule exceptions.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <template x-for="doc in dentists" :key="doc.id">
+                        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-slate-900 text-sm" x-text="doc.name"></span>
+                                <button @click="doc.active = !doc.active; showToast('Dentist availability status updated')"
+                                    :class="doc.active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'"
+                                    class="px-2.5 py-0.5 rounded-full text-[10px] font-bold" x-text="doc.active ? 'Active' : 'Inactive'"></button>
+                            </div>
+                            <p class="text-xs text-tealbrand-700 font-semibold" x-text="doc.specialty"></p>
+                            <div class="text-xs text-slate-600 space-y-1 bg-slate-50 p-3 rounded-xl">
+                                <p><strong>Working Days:</strong> <span x-text="doc.workingDays"></span></p>
+                                <p><strong>Working Hours:</strong> <span x-text="doc.workingHours"></span></p>
+                                <p><strong>Day Off / Exception:</strong> <span x-text="doc.dayOffNote || 'None scheduled'"></span></p>
+                            </div>
+                            <button @click="recordDentistDayOff(doc)" class="w-full py-2 bg-mintsoft-100 hover:bg-mintsoft-200 text-tealbrand-800 rounded-xl text-xs font-semibold transition">
+                                Record Day Off / Exception
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- =================================================================
+                 5. APPOINTMENT MANAGEMENT (FR-05, FR-06)
+                 ================================================================= -->
+            <div x-show="dashTab === 'appointments'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-slate-900">Appointment & Schedule Management</h2>
+                        <p class="text-xs text-slate-500">Approve online requests, propose alternative times, check-in patients, and prevent double bookings.</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="inline-flex rounded-xl bg-white border border-slate-200 p-1 text-xs font-medium">
+                            <button @click="aptViewMode = 'list'" :class="aptViewMode === 'list' ? 'bg-tealbrand-700 text-white' : 'text-slate-600'" class="px-3 py-1.5 rounded-lg transition">List View</button>
+                            <button @click="aptViewMode = 'calendar'" :class="aptViewMode === 'calendar' ? 'bg-tealbrand-700 text-white' : 'text-slate-600'" class="px-3 py-1.5 rounded-lg transition">Calendar Grid</button>
+                        </div>
+                        <button @click="showWalkInModal = true" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition flex items-center space-x-1.5">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            <span>Walk-in / Phone Booking</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search & Filters (FR-06) -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center gap-3 text-xs">
+                    <input type="text" x-model="aptFilterQuery" placeholder="Search patient or ID..." class="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 w-full sm:w-64 focus:outline-none focus:border-tealbrand-600">
+                    <input type="date" x-model="aptFilterDate" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none">
+                    <select x-model="aptFilterDentist" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none">
+                        <option value="">All Dentists</option>
+                        <template x-for="doc in dentists" :key="doc.id">
+                            <option :value="doc.name" x-text="doc.name"></option>
+                        </template>
+                    </select>
+                    <select x-model="aptFilterStatus" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none">
+                        <option value="">All Statuses</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Reschedule Proposed">Reschedule Proposed</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="No-show">No-show</option>
+                    </select>
+                    <button x-show="aptFilterDate || aptFilterDentist || aptFilterStatus || aptFilterQuery" @click="aptFilterDate=''; aptFilterDentist=''; aptFilterStatus=''; aptFilterQuery=''" class="text-tealbrand-700 font-semibold hover:underline">Reset Filters</button>
+                </div>
+
+                <!-- LIST VIEW -->
+                <div x-show="aptViewMode === 'list'" class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                                <tr>
+                                    <th class="py-3.5 px-4">ID & Source</th>
+                                    <th class="py-3.5 px-4">Date & Time</th>
+                                    <th class="py-3.5 px-4">Patient</th>
+                                    <th class="py-3.5 px-4">Service</th>
+                                    <th class="py-3.5 px-4">Dentist</th>
+                                    <th class="py-3.5 px-4">Status</th>
+                                    <th class="py-3.5 px-4 text-right">Workflow Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <template x-for="apt in filteredDashboardAppointments" :key="apt.id">
+                                    <tr class="hover:bg-slate-50/70">
+                                        <td class="py-3.5 px-4">
+                                            <span class="font-mono font-bold text-slate-800 block" x-text="apt.id"></span>
+                                            <span class="inline-block mt-0.5 px-2 py-0.2 rounded text-[10px] font-medium"
+                                                :class="apt.source === 'Online' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-700'" x-text="apt.source"></span>
+                                        </td>
+                                        <td class="py-3.5 px-4 font-semibold text-slate-900">
+                                            <span x-text="apt.date"></span>
+                                            <span class="block text-slate-500 font-normal" x-text="apt.time"></span>
+                                        </td>
+                                        <td class="py-3.5 px-4 font-semibold text-slate-900" x-text="apt.patientName"></td>
+                                        <td class="py-3.5 px-4 text-slate-600" x-text="apt.service"></td>
+                                        <td class="py-3.5 px-4 text-slate-700 font-medium" x-text="apt.dentist"></td>
+                                        <td class="py-3.5 px-4">
+                                            <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold" :class="statusBadgeClass(apt.status)" x-text="apt.status"></span>
+                                        </td>
+                                        <td class="py-3.5 px-4 text-right space-x-1 whitespace-nowrap">
+                                            <template x-if="apt.status === 'Pending'">
+                                                <div class="inline-flex space-x-1">
+                                                    <button @click="approveAppointment(apt)" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white px-2.5 py-1 rounded-lg font-semibold transition">Approve</button>
+                                                    <button @click="openRescheduleModal(apt)" class="bg-sky-600 hover:bg-sky-700 text-white px-2.5 py-1 rounded-lg font-semibold transition">Propose Time</button>
+                                                    <button @click="updateAppointmentStatus(apt.id, 'Rejected')" class="bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1 rounded-lg font-semibold transition">Reject</button>
+                                                </div>
+                                            </template>
+                                            <template x-if="apt.status === 'Confirmed'">
+                                                <div class="inline-flex space-x-1">
+                                                    <button @click="updateAppointmentStatus(apt.id, 'Completed')" class="bg-emerald-700 hover:bg-emerald-800 text-white px-2.5 py-1 rounded-lg font-semibold transition">Check-in & Complete</button>
+                                                    <button @click="updateAppointmentStatus(apt.id, 'No-show')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-1 rounded-lg font-semibold transition">No-show</button>
+                                                </div>
+                                            </template>
+                                            <template x-if="apt.status !== 'Pending' && apt.status !== 'Confirmed'">
+                                                <span class="text-slate-400 italic">Closed</span>
+                                            </template>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- CALENDAR / SCHEDULE GRID VIEW (FR-06) -->
+                <div x-show="aptViewMode === 'calendar'" class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-display font-bold text-base text-slate-900">Daily Dentist Schedule Matrix (Nov 16, 2026)</h3>
+                        <span class="text-xs text-slate-500">Confirmed & Pending slots by specialist</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200">
+                                    <th class="p-3 text-left font-semibold text-slate-500 w-28">Time Slot</th>
+                                    <template x-for="doc in dentists" :key="doc.id">
+                                        <th class="p-3 text-left font-bold text-slate-800 border-l border-slate-200" x-text="doc.name"></th>
+                                    </template>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <template x-for="slot in ['09:00 AM', '10:30 AM', '01:00 PM', '02:30 PM', '04:00 PM']" :key="slot">
+                                    <tr>
+                                        <td class="p-3 font-semibold text-slate-600 bg-slate-50/40" x-text="slot"></td>
+                                        <template x-for="doc in dentists" :key="doc.id">
+                                            <td class="p-2 border-l border-slate-200 align-top">
+                                                <template x-for="apt in getSlotAppointments(doc.name, slot)" :key="apt.id">
+                                                    <div class="p-2.5 rounded-xl border mb-1"
+                                                        :class="apt.status === 'Confirmed' ? 'bg-tealbrand-50 border-tealbrand-200 text-tealbrand-900' : 'bg-amber-50 border-amber-200 text-amber-900'">
+                                                        <p class="font-bold" x-text="apt.patientName"></p>
+                                                        <p class="text-[11px] opacity-80" x-text="apt.service"></p>
+                                                        <span class="inline-block mt-1 text-[10px] font-semibold uppercase" x-text="apt.status"></span>
+                                                    </div>
+                                                </template>
+                                                <div x-show="getSlotAppointments(doc.name, slot).length === 0" class="text-[11px] text-slate-300 italic p-2">Available</div>
+                                            </td>
+                                        </template>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================================
+                 6. DENTAL RECORDS & 32-TOOTH 2D DENTAL CHART (FR-07, FR-08)
+                 ================================================================= -->
+            <div x-show="dashTab === 'records'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-slate-900">Dental Records & 32-Tooth 2D Dental Chart</h2>
+                        <p class="text-xs text-slate-500">Clinical medical history, allergies, examination notes, and interactive adult dental chart.</p>
+                    </div>
+                </div>
+                    <!-- Examination Findings History (FR-07) -->
+                    <div class="space-y-2 pt-2">
+                        <h4 class="font-display font-bold text-sm text-slate-900">Clinical Examination History</h4>
+                        <div class="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden text-xs">
+                            <template x-for="exam in selectedPatient.exams" :key="exam.date + exam.notes">
+                                <div class="p-3.5 bg-slate-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div>
+                                        <span class="font-bold text-slate-900" x-text="exam.date + ' — ' + exam.dentist"></span>
+                                        <p class="text-slate-600 mt-0.5" x-text="exam.notes"></p>
+                                    </div>
+                                    <span class="text-[11px] font-semibold text-tealbrand-700" x-text="exam.finding"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================================
+                 7. TREATMENT & SERVICES (FR-09 Treatment Plans + FR-10 Service Catalog)
+                 ================================================================= -->
+            <div x-show="dashTab === 'treatments'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-slate-900">Treatment Plans & Dental Services</h2>
+                        <p class="text-xs text-slate-500">Manage patient treatment plans and clinic dental service fee schedules .</p>
+                    </div>
+                    <div class="inline-flex rounded-xl bg-white border border-slate-200 p-1 text-xs font-medium">
+                        <button @click="treatmentSubTab = 'plans'" :class="treatmentSubTab === 'plans' ? 'bg-tealbrand-700 text-white' : 'text-slate-600'" class="px-3.5 py-1.5 rounded-lg transition">Patient Treatment Plans </button>
+                        <button x-show="staffRole === 'Clinic Admin'" @click="treatmentSubTab = 'catalog'" :class="treatmentSubTab === 'catalog' ? 'bg-tealbrand-700 text-white' : 'text-slate-600'" class="px-3.5 py-1.5 rounded-lg transition">Dental Service Catalog </button>
+                    </div>
+                </div>
+
+                <!-- Sub-tab A: Patient Treatment Plans (FR-09) -->
+                <div x-show="treatmentSubTab === 'plans'" class="space-y-4">
+                    <div class="flex justify-end">
+                        <button @click="showNewTreatmentModal = true" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm">
+                            + Create Treatment Plan
+                        </button>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                                    <tr>
+                                        <th class="py-3.5 px-4">Plan ID</th>
+                                        <th class="py-3.5 px-4">Patient</th>
+                                        <th class="py-3.5 px-4">Procedures</th>
+                                        <th class="py-3.5 px-4">Tooth #</th>
+                                        <th class="py-3.5 px-4">Assigned Dentist</th>
+                                        <th class="py-3.5 px-4">Est. Cost</th>
+                                        <th class="py-3.5 px-4">Status</th>
+                                        <th class="py-3.5 px-4 text-right">Update</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <template x-for="tp in treatmentPlans" :key="tp.id">
+                                        <tr class="hover:bg-slate-50/70">
+                                            <td class="py-3.5 px-4 font-mono font-bold text-slate-800" x-text="tp.id"></td>
+                                            <td class="py-3.5 px-4 font-semibold text-slate-900" x-text="tp.patientName"></td>
+                                            <td class="py-3.5 px-4 text-slate-700" x-text="tp.procedures"></td>
+                                            <td class="py-3.5 px-4 font-mono text-slate-600" x-text="tp.tooth"></td>
+                                            <td class="py-3.5 px-4 text-slate-700" x-text="tp.dentist"></td>
+                                            <td class="py-3.5 px-4 font-bold text-slate-900" x-text="'$' + tp.cost.toFixed(2)"></td>
+                                            <td class="py-3.5 px-4">
+                                                <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold" :class="statusBadgeClass(tp.status)" x-text="tp.status"></span>
+                                            </td>
+                                            <td class="py-3.5 px-4 text-right">
+                                                <select x-model="tp.status" @change="showToast('Treatment status updated to ' + tp.status)" class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-medium">
+                                                    <option value="Planned">Planned</option>
+                                                    <option value="In Progress">In Progress</option>
+                                                    <option value="Completed">Completed</option>
+                                                    <option value="Cancelled">Cancelled</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sub-tab B: Dental Service Catalog Management (FR-10) -->
+                <div x-show="treatmentSubTab === 'catalog'" class="space-y-4">
+                    <div class="flex justify-end">
+                        <button @click="showNewServiceModal = true" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm">
+                            + Add Dental Service
+                        </button>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                                <tr>
+                                    <th class="py-3.5 px-4">Service Name</th>
+                                    <th class="py-3.5 px-4">Category</th>
+                                    <th class="py-3.5 px-4">Description</th>
+                                    <th class="py-3.5 px-4">Standard Price</th>
+                                    <th class="py-3.5 px-4">Public Website Visibility</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <template x-for="svc in services" :key="svc.id">
+                                    <tr>
+                                        <td class="py-3.5 px-4 font-bold text-slate-900" x-text="svc.name"></td>
+                                        <td class="py-3.5 px-4 text-slate-600" x-text="svc.category"></td>
+                                        <td class="py-3.5 px-4 text-slate-500 max-w-xs" x-text="svc.description"></td>
+                                        <td class="py-3.5 px-4 font-bold text-tealbrand-700" x-text="'$' + svc.price.toFixed(2)"></td>
+                                        <td class="py-3.5 px-4">
+                                            <button @click="svc.active = !svc.active; showToast('Service visibility updated on public website')"
+                                                :class="svc.active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'"
+                                                class="px-3 py-1 rounded-full text-[11px] font-semibold transition">
+                                                <span x-text="svc.active ? 'Visible on Website' : 'Deactivated'"></span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================================
+                 8. BILLING & PAYMENTS (FR-11, FR-12)
+                 ================================================================= -->
+            <div x-show="dashTab === 'billing'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-slate-900">Invoice & Patient Payment Management</h2>
+                        <p class="text-xs text-slate-500">Generate itemized invoices, record Cash/Bank/QR partial or full payments, and print receipts.</p>
+                    </div>
+                    <button @click="showNewInvoiceModal = true" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm">
+                        + Generate New Invoice
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                                <tr>
+                                    <th class="py-3.5 px-4">Invoice #</th>
+                                    <th class="py-3.5 px-4">Patient</th>
+                                    <th class="py-3.5 px-4">Treatment Items</th>
+                                    <th class="py-3.5 px-4">Total</th>
+                                    <th class="py-3.5 px-4">Paid</th>
+                                    <th class="py-3.5 px-4">Balance</th>
+                                    <th class="py-3.5 px-4">Status</th>
+                                    <th class="py-3.5 px-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <template x-for="inv in invoices" :key="inv.id">
+                                    <tr class="hover:bg-slate-50/70">
+                                        <td class="py-3.5 px-4 font-mono font-bold text-slate-900" x-text="inv.id"></td>
+                                        <td class="py-3.5 px-4 font-semibold text-slate-900" x-text="inv.patientName"></td>
+                                        <td class="py-3.5 px-4 text-slate-600" x-text="inv.items"></td>
+                                        <td class="py-3.5 px-4 font-bold text-slate-900" x-text="'$' + inv.total.toFixed(2)"></td>
+                                        <td class="py-3.5 px-4 font-semibold text-tealbrand-700" x-text="'$' + inv.paid.toFixed(2)"></td>
+                                        <td class="py-3.5 px-4 font-bold" :class="inv.balance > 0 ? 'text-rose-700' : 'text-slate-400'" x-text="'$' + inv.balance.toFixed(2)"></td>
+                                        <td class="py-3.5 px-4">
+                                            <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold"
+                                                :class="inv.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' : (inv.status === 'Partial' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800')"
+                                                x-text="inv.status"></span>
+                                        </td>
+                                        <td class="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                                            <button x-show="inv.balance > 0" @click="openRecordPaymentModal(inv)" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white px-3 py-1.5 rounded-lg font-semibold transition">
+                                                Record Payment
+                                            </button>
+                                            <button @click="openReceiptModal(inv)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-semibold transition">
+                                                Receipt / Print
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================================
+                 9. FINANCIAL REPORTS & ANALYTICS (FR-13 — Clinic Admin)
+                 ================================================================= -->
+            <div x-show="dashTab === 'reports'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+                        <p class="text-[11px] font-semibold text-slate-400 uppercase">Total Invoiced Revenue</p>
+                        <p class="text-2xl font-display font-bold text-slate-900 mt-1" x-text="'$' + totalInvoiced.toFixed(2)"></p>
+                        <p class="text-[11px] text-slate-500 mt-1" x-text="invoices.length + ' Invoices Issued'"></p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+                        <p class="text-[11px] font-semibold text-slate-400 uppercase">Payments Received</p>
+                        <p class="text-2xl font-display font-bold text-tealbrand-700 mt-1" x-text="'$' + totalCollected.toFixed(2)"></p>
+                        <p class="text-[11px] text-emerald-700 mt-1 font-medium">Actual Collections</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+                        <p class="text-[11px] font-semibold text-slate-400 uppercase">Outstanding Balances</p>
+                        <p class="text-2xl font-display font-bold text-rose-700 mt-1" x-text="'$' + totalOutstanding.toFixed(2)"></p>
+                        <p class="text-[11px] text-rose-600 mt-1 font-medium">Receivables Due</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+                        <p class="text-[11px] font-semibold text-slate-400 uppercase">Estimated Profit</p>
+                        <p class="text-2xl font-display font-bold text-slate-900 mt-1" x-text="'$' + (totalCollected - clinicExpenses).toFixed(2)"></p>
+                        <p class="text-[11px] text-slate-500 mt-1" x-text="'After $' + clinicExpenses + ' Expenses'"></p>
+                    </div>
+                </div>
+
+                <!-- Report Period Toggle & Expense Input -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs font-semibold text-slate-700">Payment Report Period:</span>
+                        <div class="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-medium">
+                            <button @click="reportPeriod = 'daily'; updateCharts()" :class="reportPeriod === 'daily' ? 'bg-white text-tealbrand-800 shadow-sm' : 'text-slate-600'" class="px-3 py-1 rounded-lg transition">Daily</button>
+                            <button @click="reportPeriod = 'monthly'; updateCharts()" :class="reportPeriod === 'monthly' ? 'bg-white text-tealbrand-800 shadow-sm' : 'text-slate-600'" class="px-3 py-1 rounded-lg transition">Monthly</button>
+                            <button @click="reportPeriod = 'yearly'; updateCharts()" :class="reportPeriod === 'yearly' ? 'bg-white text-tealbrand-800 shadow-sm' : 'text-slate-600'" class="px-3 py-1 rounded-lg transition">Yearly</button>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 text-xs">
+                        <span class="text-slate-600 font-medium">Clinic Expenses ($):</span>
+                        <input type="number" x-model.number="clinicExpenses" class="w-24 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800">
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm lg:col-span-2">
+                        <h3 class="font-display font-bold text-base text-slate-900 mb-1">Collections vs. Invoiced Revenue</h3>
+                        <p class="text-xs text-slate-500 mb-4">Payments received, invoiced revenue, and profit tracked separately (<span x-text="reportPeriod"></span>).</p>
+                        <div class="h-64"><canvas id="revenueChart"></canvas></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+                        <h3 class="font-display font-bold text-base text-slate-900 mb-1">Payment Methods Breakdown</h3>
+                        <p class="text-xs text-slate-500 mb-4">Cash, Bank Transfer & QR Payment</p>
+                        <div class="h-56 flex items-center justify-center"><canvas id="paymentMethodChart"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Revenue by Dentist -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                    <h3 class="font-display font-bold text-base text-slate-900">Revenue Report by Dentist</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                        <template x-for="doc in dentists" :key="doc.id">
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/70 space-y-2">
+                                <div class="flex justify-between font-bold text-slate-900">
+                                    <span x-text="doc.name"></span>
+                                    <span class="text-tealbrand-700" x-text="'$' + doc.revenue.toFixed(2)"></span>
+                                </div>
+                                <p class="text-slate-500" x-text="doc.specialty"></p>
+                                <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                                    <div class="bg-tealbrand-600 h-2 rounded-full" :style="'width:' + Math.min(100, (doc.revenue / 1500) * 100) + '%'"></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================================
+                 10. CLINIC SETTINGS (Business Management — Clinic Admin)
+                 ================================================================= -->
+            <div x-show="dashTab === 'settings'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div class="max-w-3xl bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-slate-900">Clinic Settings & Public Information</h2>
+                        <p class="text-xs text-slate-500">Changes saved here update the Public Patient Website contact details and operating hours immediately.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Clinic Name</label>
+                            <input type="text" x-model="clinicSettings.name" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Direct Phone Line</label>
+                            <input type="text" x-model="clinicSettings.phone" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Support Email</label>
+                            <input type="email" x-model="clinicSettings.email" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Operating Hours</label>
+                            <input type="text" x-model="clinicSettings.hours" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block font-semibold text-slate-700 mb-1">Clinic Address</label>
+                            <input type="text" x-model="clinicSettings.address" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">
+                        <button @click="staffRole = 'System Admin'; onRoleChange()" class="text-xs font-semibold text-tealbrand-700 hover:underline">
+                            Switch to System Admin (IT Support) Control Panel →
+                        </button>
+                        <button @click="showToast('Clinic settings saved and synchronized with Public Website!')" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs font-semibold px-6 py-2.5 rounded-xl shadow-sm">
+                            Save Clinic Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================================
+                 SYSTEM ADMINISTRATION CONTROL PANEL (IT SUPPORT — Reference Image 2 & 3)
+                 ================================================================= -->
+
+            <!-- SYS-1: SYSTEM OVERVIEW (Matches Reference Image 2 exactly) -->
+            <div x-show="dashTab === 'sys-overview'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div class="bg-tealbrand-900 text-white p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="flex items-center space-x-3.5">
+                        <div class="w-11 h-11 rounded-2xl bg-tealbrand-800 border border-tealbrand-700 flex items-center justify-center">
+                            <i data-lucide="shield-check" class="w-6 h-6 text-tealbrand-300"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-display text-lg sm:text-xl font-bold">DentalCare – System Administration</h2>
+                            <p class="text-xs text-tealbrand-200">Technical control panel • Software & Infrastructure Health</p>
+                        </div>
+                    </div>
+                    <span class="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-xs font-semibold w-fit">
+                        All Systems Operational
+                    </span>
+                </div>
+
+                <!-- 4 Core Status Cards from Reference Image 2 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1.5">
+                        <span class="text-xs text-slate-400 font-medium">Application</span>
+                        <div class="flex items-center space-x-2 text-emerald-700 font-display font-bold text-lg">
+                            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                            <span>Running</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Spring Boot REST API v3.4</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1.5">
+                        <span class="text-xs text-slate-400 font-medium">Database</span>
+                        <div class="flex items-center space-x-2 text-emerald-700 font-display font-bold text-lg">
+                            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                            <span>Connected</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">MySQL 8.0 • Latency 4ms</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1.5">
+                        <span class="text-xs text-slate-400 font-medium">Server</span>
+                        <div class="flex items-center space-x-2 text-slate-900 font-display font-bold text-lg">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <span>Online</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Uptime: 99.98% (42d 11h)</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1.5">
+                        <span class="text-xs text-slate-400 font-medium">Latest backup</span>
+                        <div class="flex items-center space-x-2 text-tealbrand-700 font-display font-bold text-lg">
+                            <i data-lucide="hard-drive" class="w-5 h-5"></i>
+                            <span>Completed</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400" x-text="backups[0] ? backups[0].timestamp : 'Today, 02:00 AM'"></p>
+                    </div>
+                </div>
+
+                <!-- Interactive Technical Administration Quick-Launch List (Matches Image 2) -->
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm divide-y divide-slate-100">
+                    <div class="px-6 py-4">
+                        <h3 class="font-display font-bold text-base text-slate-900">System Administration Modules</h3>
+                    </div>
+                    <button @click="setDashTab('sys-database')" class="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition text-left">
+                        <div class="flex items-center space-x-3.5">
+                            <div class="p-2.5 rounded-xl bg-tealbrand-50 text-tealbrand-700"><i data-lucide="database" class="w-5 h-5"></i></div>
+                            <div>
+                                <p class="font-bold text-sm text-slate-900">Database Management</p>
+                                <p class="text-xs text-slate-500">Monitor MySQL connection status, inspect schema tables, and optimize indices.</p>
+                            </div>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+                    </button>
+                    <button @click="setDashTab('sys-backup')" class="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition text-left">
+                        <div class="flex items-center space-x-3.5">
+                            <div class="p-2.5 rounded-xl bg-tealbrand-50 text-tealbrand-700"><i data-lucide="hard-drive-download" class="w-5 h-5"></i></div>
+                            <div>
+                                <p class="font-bold text-sm text-slate-900">Backup & Recovery</p>
+                                <p class="text-xs text-slate-500">Create new database backups and restore database snapshots.</p>
+                            </div>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+                    </button>
+                    <button @click="setDashTab('sys-logs')" class="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition text-left">
+                        <div class="flex items-center space-x-3.5">
+                            <div class="p-2.5 rounded-xl bg-tealbrand-50 text-tealbrand-700"><i data-lucide="scroll-text" class="w-5 h-5"></i></div>
+                            <div>
+                                <p class="font-bold text-sm text-slate-900">System Logs</p>
+                                <p class="text-xs text-slate-500">Check application error logs, authentication audits, and API events.</p>
+                            </div>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+                    </button>
+                    <button @click="setDashTab('sys-monitoring')" class="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition text-left">
+                        <div class="flex items-center space-x-3.5">
+                            <div class="p-2.5 rounded-xl bg-tealbrand-50 text-tealbrand-700"><i data-lucide="activity" class="w-5 h-5"></i></div>
+                            <div>
+                                <p class="font-bold text-sm text-slate-900">System Monitoring</p>
+                                <p class="text-xs text-slate-500">Monitor system health, JVM memory usage, CPU load, and server status.</p>
+                            </div>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+                    </button>
+                    <button @click="setDashTab('sys-settings')" class="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition text-left">
+                        <div class="flex items-center space-x-3.5">
+                            <div class="p-2.5 rounded-xl bg-tealbrand-50 text-tealbrand-700"><i data-lucide="sliders" class="w-5 h-5"></i></div>
+                            <div>
+                                <p class="font-bold text-sm text-slate-900">Technical Settings</p>
+                                <p class="text-xs text-slate-500">Manage technical configuration, session timeouts, and backup retention.</p>
+                            </div>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- SYS-2: DATABASE MANAGEMENT -->
+            <div x-show="dashTab === 'sys-database'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-slate-900">Database Management (MySQL / Hibernate)</h2>
+                        <p class="text-xs text-slate-500">Inspect active schema tables, record counts, and run integrity optimizations.</p>
+                    </div>
+                    <button @click="runDbOptimization()" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm">
+                        Run Integrity Check & Optimize
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                            <tr>
+                                <th class="py-3.5 px-4">Table Name</th>
+                                <th class="py-3.5 px-4">Engine</th>
+                                <th class="py-3.5 px-4">Live Records</th>
+                                <th class="py-3.5 px-4">Storage Size</th>
+                                <th class="py-3.5 px-4">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr><td class="py-3 px-4 font-mono font-bold">users_roles</td><td class="py-3 px-4">InnoDB</td><td class="py-3 px-4" x-text="staffUsers.length"></td><td class="py-3 px-4">48 KB</td><td class="py-3 px-4 text-emerald-700 font-semibold">Healthy</td></tr>
+                            <tr><td class="py-3 px-4 font-mono font-bold">patients</td><td class="py-3 px-4">InnoDB</td><td class="py-3 px-4" x-text="patients.length"></td><td class="py-3 px-4">128 KB</td><td class="py-3 px-4 text-emerald-700 font-semibold">Healthy</td></tr>
+                            <tr><td class="py-3 px-4 font-mono font-bold">appointments</td><td class="py-3 px-4">InnoDB</td><td class="py-3 px-4" x-text="appointments.length"></td><td class="py-3 px-4">256 KB</td><td class="py-3 px-4 text-emerald-700 font-semibold">Healthy</td></tr>
+                            <tr><td class="py-3 px-4 font-mono font-bold">dental_charts_32</td><td class="py-3 px-4">InnoDB</td><td class="py-3 px-4" x-text="patients.length * 32"></td><td class="py-3 px-4">312 KB</td><td class="py-3 px-4 text-emerald-700 font-semibold">Healthy</td></tr>
+                            <tr><td class="py-3 px-4 font-mono font-bold">invoices_payments</td><td class="py-3 px-4">InnoDB</td><td class="py-3 px-4" x-text="invoices.length"></td><td class="py-3 px-4">192 KB</td><td class="py-3 px-4 text-emerald-700 font-semibold">Healthy</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- SYS-3: BACKUP & RECOVERY -->
+            <div x-show="dashTab === 'sys-backup'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-slate-900">Backup & Recovery</h2>
+                        <p class="text-xs text-slate-500">Create and manage encrypted database backups or restore previous snapshots.</p>
+                    </div>
+                    <button @click="createDatabaseBackup()" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm flex items-center space-x-1.5">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                        <span>Create New Backup Now</span>
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                            <tr>
+                                <th class="py-3.5 px-4">Backup Snapshot ID</th>
+                                <th class="py-3.5 px-4">Timestamp</th>
+                                <th class="py-3.5 px-4">Type</th>
+                                <th class="py-3.5 px-4">Size</th>
+                                <th class="py-3.5 px-4 text-right">Recovery Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <template x-for="bk in backups" :key="bk.id">
+                                <tr class="hover:bg-slate-50/70">
+                                    <td class="py-3.5 px-4 font-mono font-bold text-slate-900" x-text="bk.id"></td>
+                                    <td class="py-3.5 px-4 text-slate-600" x-text="bk.timestamp"></td>
+                                    <td class="py-3.5 px-4"><span class="px-2 py-0.5 rounded bg-mintsoft-100 text-tealbrand-800 font-semibold" x-text="bk.type"></span></td>
+                                    <td class="py-3.5 px-4 text-slate-600" x-text="bk.size"></td>
+                                    <td class="py-3.5 px-4 text-right space-x-2">
+                                        <button @click="restoreBackup(bk)" class="bg-amber-100 hover:bg-amber-200 text-amber-900 px-3 py-1 rounded-lg font-semibold transition">Restore Snapshot</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- SYS-4: SYSTEM LOGS -->
+            <div x-show="dashTab === 'sys-logs'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-slate-900">Application & Error Logs</h2>
+                        <p class="text-xs text-slate-500">Audit trail of Spring Security logins, database transactions, and system events.</p>
+                    </div>
+                    <select x-model="logFilterLevel" class="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium">
+                        <option value="">All Log Levels</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARN">WARN</option>
+                        <option value="ERROR">ERROR</option>
+                    </select>
+                </div>
+
+                <div class="bg-slate-900 text-slate-200 rounded-2xl p-5 font-mono text-xs space-y-2.5 overflow-x-auto shadow-sm">
+                    <template x-for="log in filteredSystemLogs" :key="log.id">
+                        <div class="flex items-start space-x-3 border-b border-slate-800 pb-2">
+                            <span class="text-slate-500 whitespace-nowrap" x-text="log.time"></span>
+                            <span class="px-1.5 py-0.2 rounded text-[10px] font-bold"
+                                :class="log.level === 'ERROR' ? 'bg-rose-500/20 text-rose-300' : (log.level === 'WARN' ? 'bg-amber-500/20 text-amber-300' : 'bg-tealbrand-500/20 text-tealbrand-300')"
+                                x-text="log.level"></span>
+                            <span x-text="log.message"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- SYS-5: SYSTEM MONITORING -->
+            <div x-show="dashTab === 'sys-monitoring'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div>
+                    <h2 class="font-display text-xl font-bold text-slate-900">System Health & Resource Monitoring</h2>
+                    <p class="text-xs text-slate-500">Real-time CPU, JVM Heap Memory, API throughput, and connection pool telemetry.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+                        <div class="flex justify-between text-xs font-bold"><span>CPU Utilization</span><span class="text-tealbrand-700">24%</span></div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full"><div class="bg-tealbrand-600 h-2.5 rounded-full" style="width: 24%"></div></div>
+                        <p class="text-[11px] text-slate-400">4 vCPU Cores • Normal Load</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+                        <div class="flex justify-between text-xs font-bold"><span>JVM Memory Usage</span><span class="text-tealbrand-700">1.4 GB / 4.0 GB</span></div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full"><div class="bg-tealbrand-600 h-2.5 rounded-full" style="width: 35%"></div></div>
+                        <p class="text-[11px] text-slate-400">Garbage Collection Healthy</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+                        <div class="flex justify-between text-xs font-bold"><span>HikariCP DB Pool</span><span class="text-emerald-700">4 / 20 Active</span></div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full"><div class="bg-emerald-600 h-2.5 rounded-full" style="width: 20%"></div></div>
+                        <p class="text-[11px] text-slate-400">Zero Connection Timeouts</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SYS-6: TECHNICAL SETTINGS -->
+            <div x-show="dashTab === 'sys-settings'" class="p-4 md:p-8 space-y-6" x-cloak>
+                <div class="max-w-3xl bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-sm space-y-5">
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-slate-900">Technical Configuration</h2>
+                        <p class="text-xs text-slate-500">Configure automated database backup intervals, session security, and API rate limits.</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Automated Backup Frequency</label>
+                            <select x-model="techConfig.backupSchedule" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm">
+                                <option>Every 24 Hours (02:00 AM)</option>
+                                <option>Every 12 Hours</option>
+                                <option>Every 6 Hours</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Session Timeout (Minutes)</label>
+                            <input type="number" x-model="techConfig.sessionTimeout" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">API Rate Limit (Req / Min)</label>
+                            <input type="number" x-model="techConfig.rateLimit" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Environment Mode</label>
+                            <input type="text" value="PRODUCTION (HTTPS / TLS 1.3)" disabled class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-500">
+                        </div>
+                    </div>
+                    <div class="flex justify-end pt-3 border-t border-slate-100">
+                        <button @click="showToast('Technical configuration applied successfully!')" class="bg-tealbrand-700 hover:bg-tealbrand-800 text-white text-xs font-semibold px-5 py-2.5 rounded-xl">
+                            Apply Technical Configuration
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         MODALS (AUTH, WALK-IN BOOKING, RESCHEDULE, TOOTH CHART, PAYMENT, RECEIPT, NEW USER)
+         ===================================================================== -->
+
+    <!-- 1. Patient Login / Registration / Forgot Password Modal (FR-01) -->
+    <div x-show="showAuthModal" x-cloak class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="showAuthModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-5 border border-slate-100">
+            <div class="flex items-center justify-between">
+                <h3 class="font-display font-bold text-xl text-slate-900"
+                    x-text="authModalMode === 'login' ? 'Patient Portal Login' : (authModalMode === 'register' ? 'Create Patient Account' : 'Reset Password')"></h3>
+                <button @click="showAuthModal = false" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div x-show="authModalMode === 'register'">
+                    <label class="block font-semibold text-slate-700 mb-1">Full Name</label>
+                    <input type="text" x-model="authForm.name" placeholder="Sarah Jenkins" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Email Address</label>
+                    <input type="email" x-model="authForm.email" placeholder="sarah@example.com" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm">
+                </div>
+                <div x-show="authModalMode === 'register'">
+                    <label class="block font-semibold text-slate-700 mb-1">Phone Number</label>
+                    <input type="tel" x-model="authForm.phone" placeholder="+855 12 345 678" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm">
+                </div>
+                <div x-show="authModalMode !== 'forgot'">
+                    <label class="block font-semibold text-slate-700 mb-1">Password</label>
+                    <input type="password" x-model="authForm.password" placeholder="••••••••" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm">
+                </div>
+            </div>
+
+            <button @click="handlePatientAuth()" class="w-full py-3 bg-tealbrand-700 hover:bg-tealbrand-800 text-white font-semibold rounded-xl text-sm transition">
+                <span x-text="authModalMode === 'login' ? 'Sign In to Portal' : (authModalMode === 'register' ? 'Register & Link Record' : 'Send Password Reset Link')"></span>
+            </button>
+
+            <div class="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+                <button x-show="authModalMode === 'login'" @click="authModalMode = 'forgot'" class="text-tealbrand-700 hover:underline">Forgot Password?</button>
+                <button x-show="authModalMode === 'login'" @click="authModalMode = 'register'" class="font-semibold text-tealbrand-700 hover:underline">Create Account</button>
+                <button x-show="authModalMode !== 'login'" @click="authModalMode = 'login'" class="font-semibold text-tealbrand-700 hover:underline">← Back to Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Walk-In / Telephone Appointment Modal (FR-05, FR-06) -->
+    <div x-show="showWalkInModal" x-cloak class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="showWalkInModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="font-display font-bold text-base text-slate-900">New Walk-In / Clinic Appointment</h3>
+                <button @click="showWalkInModal = false" class="text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Patient Name *</label>
+                    <input type="text" x-model="walkInForm.patientName" placeholder="Enter patient name" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Service</label>
+                    <select x-model="walkInForm.service" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm">
+                        <template x-for="s in services" :key="s.id"><option :value="s.name" x-text="s.name"></option></template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Dentist</label>
+                    <select x-model="walkInForm.dentist" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm">
+                        <template x-for="d in activeDentists" :key="d.id"><option :value="d.name" x-text="d.name"></option></template>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Date</label>
+                        <input type="date" x-model="walkInForm.date" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Time Slot</label>
+                        <select x-model="walkInForm.time" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            <option>09:00 AM</option>
+                            <option>10:30 AM</option>
+                            <option>01:00 PM</option>
+                            <option>02:30 PM</option>
+                            <option>04:00 PM</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+                <button @click="showWalkInModal = false" class="px-4 py-2 bg-slate-100 rounded-xl text-xs font-semibold">Cancel</button>
+                <button @click="createWalkInBooking()" class="px-4 py-2 bg-tealbrand-700 text-white rounded-xl text-xs font-semibold">Confirm Booking</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Propose Alternative Time Modal (FR-05) -->
+    <div x-show="showRescheduleModal" x-cloak class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="showRescheduleModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 class="font-display font-bold text-base text-slate-900">Propose Alternative Appointment Slot</h3>
+            <div class="space-y-3 text-xs" x-if="rescheduleTarget">
+                <p class="text-slate-600">Suggesting alternative date/time for <strong x-text="rescheduleTarget.patientName"></strong>:</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Proposed Date</label>
+                        <input type="date" x-model="rescheduleDate" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Proposed Time</label>
+                        <select x-model="rescheduleTime" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                            <option>09:00 AM</option>
+                            <option>10:30 AM</option>
+                            <option>02:30 PM</option>
+                            <option>04:00 PM</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 pt-3">
+                <button @click="showRescheduleModal = false" class="px-4 py-2 bg-slate-100 rounded-xl text-xs font-semibold">Cancel</button>
+                <button @click="submitRescheduleProposal()" class="px-4 py-2 bg-sky-600 text-white rounded-xl text-xs font-semibold">Send Proposal to Patient</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Tooth Condition Editor Modal (FR-08) -->
+    <div x-show="showToothModal" x-cloak class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="showToothModal = false" class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <h3 class="font-display font-bold text-base text-slate-900" x-text="'Update Tooth #' + editingToothNum"></h3>
+            <div class="space-y-3 text-xs">
+                <label class="block font-semibold text-slate-700">Clinical Tooth Condition</label>
+                <select x-model="editingToothStatus" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm">
+                    <option value="Healthy">Healthy</option>
+                    <option value="Decayed">Decayed</option>
+                    <option value="Filled">Filled</option>
+                    <option value="Missing">Missing</option>
+                </select>
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button @click="showToothModal = false" class="px-4 py-2 bg-slate-100 rounded-xl text-xs font-semibold">Cancel</button>
+                <button @click="saveToothStatus()" class="px-4 py-2 bg-tealbrand-700 text-white rounded-xl text-xs font-semibold">Save to Dental Chart</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Record Payment Modal (FR-12) -->
+    <div x-show="showPaymentModal" x-cloak class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="showPaymentModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 class="font-display font-bold text-base text-slate-900">Record Patient Payment </h3>
+            <div class="space-y-3 text-xs" x-if="paymentTargetInvoice">
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1">
+                    <p>Invoice: <strong x-text="paymentTargetInvoice.id"></strong> (<span x-text="paymentTargetInvoice.patientName"></span>)</p>
+                    <p>Remaining Balance Due: <strong class="text-rose-700" x-text="'$' + paymentTargetInvoice.balance.toFixed(2)"></strong></p>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Payment Amount ($)</label>
+                    <input type="number" step="0.01" x-model.number="paymentInputAmount" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Payment Method</label>
+                    <select x-model="paymentInputMethod" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm">
+                        <option value="QR Payment">QR Payment (KHQR / PromptPay)</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Cash">Cash</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button @click="showPaymentModal = false" class="px-4 py-2 bg-slate-100 rounded-xl text-xs font-semibold">Cancel</button>
+                <button @click="processInvoicePayment()" class="px-4 py-2 bg-tealbrand-700 text-white rounded-xl text-xs font-semibold">Confirm Payment & Issue Receipt</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. Printable Invoice / Payment Receipt Modal (FR-11, FR-12) -->
+    <div x-show="showReceiptModal" x-cloak class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="showReceiptModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5">
+            <div id="printable-receipt" class="space-y-4 text-xs" x-if="receiptTargetInvoice">
+                <div class="flex items-start justify-between border-b border-slate-200 pb-4">
+                    <div>
+                        <h3 class="font-display font-bold text-lg text-tealbrand-800">DentalCare Clinic</h3>
+                        <p class="text-slate-500">128 Norodom Blvd, Suite 302 • +855 (023) 884-920</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-mono font-bold text-sm text-slate-900 block" x-text="receiptTargetInvoice.id"></span>
+                        <span class="text-slate-400">Official Receipt / Invoice</span>
+                    </div>
+                </div>
+                <div class="flex justify-between">
+                    <div>
+                        <span class="text-slate-400 block">Billed To:</span>
+                        <strong class="text-sm text-slate-900" x-text="receiptTargetInvoice.patientName"></strong>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-slate-400 block">Date Issued:</span>
+                        <strong class="text-slate-800">Nov 16, 2026</strong>
+                    </div>
+                </div>
+                <div class="border-t border-b border-slate-200 py-3 space-y-2">
+                    <div class="flex justify-between font-semibold text-slate-700">
+                        <span x-text="receiptTargetInvoice.items"></span>
+                        <span x-text="'$' + receiptTargetInvoice.total.toFixed(2)"></span>
+                    </div>
+                </div>
+                <div class="space-y-1 text-right">
+                    <p class="text-slate-500">Total Amount: <strong class="text-slate-900" x-text="'$' + receiptTargetInvoice.total.toFixed(2)"></strong></p>
+                    <p class="text-tealbrand-700">Amount Paid (<span x-text="receiptTargetInvoice.lastMethod || 'N/A'"></span>): <strong x-text="'$' + receiptTargetInvoice.paid.toFixed(2)"></strong></p>
+                    <p class="text-sm font-bold" :class="receiptTargetInvoice.balance > 0 ? 'text-rose-700' : 'text-emerald-700'">
+                        Remaining Balance: <span x-text="'$' + receiptTargetInvoice.balance.toFixed(2)"></span>
+                    </p>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+                <button @click="showReceiptModal = false" class="px-4 py-2 bg-slate-100 rounded-xl text-xs font-semibold">Close</button>
+                <button @click="window.print()" class="px-4 py-2 bg-tealbrand-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                    <span>Print Receipt</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7. Create Staff / System User Modal (FR-01) -->
+    <div x-show="showNewUserModal" x-cloak class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="showNewUserModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 class="font-display font-bold text-base text-slate-900">Create New Staff / System Account</h3>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Full Name *</label>
+                    <input type="text" x-model="newUserForm.name" placeholder="e.g., Alex Morgan" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Email *</label>
+                    <input type="email" x-model="newUserForm.email" placeholder="alex@dentalcare.com" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">System Role</label>
+                    <select x-model="newUserForm.role" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm">
+                        <option value="Clinic Admin">Clinic Admin</option>
+                        <option value="System Admin">System Admin (IT Support)</option>
+                        <option value="Receptionist">Receptionist</option>
+                        <option value="Dentist">Dentist</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button @click="showNewUserModal = false" class="px-4 py-2 bg-slate-100 rounded-xl text-xs font-semibold">Cancel</button>
+                <button @click="createStaffUser()" class="px-4 py-2 bg-tealbrand-700 text-white rounded-xl text-xs font-semibold">Create Account</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         APPLICATION STATE & BUSINESS LOGIC (ALPINE.JS + CHART.JS)
+         ===================================================================== -->
+    <script src="js/app.js"></script>
+</body>
+</html>
